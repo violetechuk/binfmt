@@ -5,7 +5,7 @@ This repository contains libraries that help with formatting binary responses fr
 ## Usage
 
 > [!WARNING]  
-> This library has little to no protection if the binary data given to it does not match the format you give it via `toJson()`.
+> This library has no protection if the binary data given to it does not match the format you give it via `toJson()`. Expect console errors if this occurs.
 
 The following example is JavaScript code to read a binary response from a `fetch()` call that has the following information:
 - A 4-character header of `DATA`.
