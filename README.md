@@ -23,12 +23,12 @@ const bf = new BinaryFormatter( await bytes.arrayBuffer(), true );
 console.log( bf.toJson(format) );
 ```
 
-This will output the following in the browser console:
+This will output the following JSON in the browser console:
 
 ```JSON
 {
-    header: "DATA",
-    exampleStr: "Example string!",
-    exampleUint: 61
+    "header": "DATA",
+    "exampleStr": "Example string!",
+    "exampleUint": 61
 }
 ```
