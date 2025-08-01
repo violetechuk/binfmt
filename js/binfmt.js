@@ -26,9 +26,17 @@ export const BINARY_FORMATTER_DATA_TYPES = Object.freeze({
     UInt:                                       4,
     Long:                                       5,
     ULong:                                      6,
-    FixedLengthCharacters:                      7,
-    String:                                     8,
-    Binary:                                     9
+    Float:                                      7,
+    FixedLengthCharacters:                      8,
+    String:                                     9,
+    Binary:                                     10
+});
+
+export const BINARY_FORMATTER_SIZE_IDENTIFIERS = Object.freeze({
+    Byte:                                       0,
+    UShort:                                     1,
+    UInt:                                       2,
+    ULong:                                      3
 });
 
 export default class BinaryFormatter
@@ -115,6 +123,10 @@ export default class BinaryFormatter
                     newObject[ k ] = this.#data.getBigUint64( this.#pointer, this.#useLittleEndian );
                     this.#pointer += 8;
                     break;
+                case BINARY_FORMATTER_DATA_TYPES.Float:
+                    newObject[ k ] = parseFloat( this.#data.getFloat64( this.#pointer, this.#useLittleEndian ) );
+                    this.#pointer += 8;
+                    break;
                 case BINARY_FORMATTER_DATA_TYPES.FixedLengthCharacters:
                     {
                         let size = valueSpec.size;
@@ -128,10 +140,28 @@ export default class BinaryFormatter
                     break;
                 case BINARY_FORMATTER_DATA_TYPES.String:
                     {
-                        let size = this.#data.getBigUint64( this.#pointer, this.#useLittleEndian );
-                        let str = "";
+                        let size = 0;
+                        switch( valueSpec.sizeIdentifier ) {
+                            case BINARY_FORMATTER_SIZE_IDENTIFIERS.Byte:
+                                size = this.#data.getUint8( this.#pointer++ );
+                                this.#pointer += 1;
+                                break;
+                            case BINARY_FORMATTER_SIZE_IDENTIFIERS.UShort:
+                                size = this.#data.getUint16( this.#pointer, this.#useLittleEndian );
+                                this.#pointer += 2;
+                                break;
+                            case BINARY_FORMATTER_SIZE_IDENTIFIERS.UInt:
+                                size = this.#data.getUint32( this.#pointer, this.#useLittleEndian );
+                                this.#pointer += 4;
+                                break;
+                            case BINARY_FORMATTER_SIZE_IDENTIFIERS.ULong:
+                            default:
+                                size = this.#data.getBigUint64( this.#pointer, this.#useLittleEndian );
+                                this.#pointer += 8;
+                                break;
+                        }
 
-                        this.#pointer += 8;
+                        let str = "";
 
                         while( size-- > 0 )
                             str += String.fromCharCode( this.#data.getUint8( this.#pointer++ ) );
@@ -291,6 +321,22 @@ export class BinaryFormat
     }
 
     /**
+     * Float data type.
+     * @param {string} n Name.
+     * @returns {this}
+     */
+    float( n )
+    {
+        this.#format.push(
+            {
+                name: n,
+                type: BINARY_FORMATTER_DATA_TYPES.Float
+            }
+        );
+        return this;
+    }
+
+    /**
      * Fixed length of characters data type.
      * @param {string} n Name.
      * @param {BigInt} s Size.
@@ -311,14 +357,16 @@ export class BinaryFormat
     /**
      * String data type.
      * @param {string} n Name.
+     * @param {number} [si] Size identifier (optional).
      * @returns {this}
      */
-    string( n )
+    string( n, si )
     {
         this.#format.push(
             {
                 name: n,
-                type: BINARY_FORMATTER_DATA_TYPES.String
+                type: BINARY_FORMATTER_DATA_TYPES.String,
+                sizeIdentifier: si
             }
         );
         return this;

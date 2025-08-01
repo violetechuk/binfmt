@@ -26,9 +26,15 @@ define( "BF_INT",                3 );
 define( "BF_UINT",               4 );
 define( "BF_LONG",               5 );
 define( "BF_ULONG",              6 );
-define( "BF_FIXED_LEN_CHARS",    7 );
-define( "BF_STRING",             8 );
-define( "BF_BINARY",             9 );
+define( "BF_FLOAT",              7 );
+define( "BF_FIXED_LEN_CHARS",    8 );
+define( "BF_STRING",             9 );
+define( "BF_BINARY",             10 );
+
+define( "BFSI_BYTE",             0 );
+define( "BFSI_USHORT",           1 );
+define( "BFSI_UINT",             2 );
+define( "BFSI_ULONG",            3 );
 
 class BinaryFormat {
     /**
@@ -114,6 +120,17 @@ class BinaryFormat {
     }
 
     /**
+     * Float data type.
+     * 
+     * @param string $n Name.
+     * @return self
+     */
+    public function float( string $n ) : self {
+        $this->format[] = [ "name" => $n, "type" => BF_FLOAT ];
+        return $this;
+    }
+
+    /**
      * Fixed length characters data type.
      * 
      * @param string $n Name.
@@ -130,10 +147,11 @@ class BinaryFormat {
      * 
      * @param string $n Name.
      * @param int $s Size.
+     * @param ?int $si Size identifier.
      * @return self
      */
-    public function string( string $n ) : self {
-        $this->format[] = [ "name" => $n, "type" => BF_STRING ];
+    public function string( string $n, ?int $si ) : self {
+        $this->format[] = [ "name" => $n, "type" => BF_STRING, "sizeIdentifier" => $si ];
         return $this;
     }
 
@@ -237,14 +255,37 @@ class BinaryFormatter {
                     $arr[ $name ] = $value;
                     $this->pointer += 8;
                     break;
+                case BF_FLOAT:
+                    $value = unpack( $this->useLittleEndian ? "e" : "E", $this->bin, $this->pointer )[ 1 ];
+                    $arr[ $name ] = $value;
+                    $this->pointer += 8;
+                    break;
                 case BF_FIXED_LEN_CHARS:
                     $value = unpack( "a{$size}", $this->bin, $this->pointer )[ 1 ];
                     $arr[ $name ] = $value;
                     $this->pointer += $size;
                     break;
                 case BF_STRING:
-                    $length = unpack( $this->useLittleEndian ? "P" : "J", $this->bin, $this->pointer )[ 1 ];
-                    $this->pointer += 8;
+                    $length = 0;
+                    switch( $f[ "sizeIdentifier" ] ?? BFSI_ULONG ) {
+                        case BFSI_BYTE:
+                            $length = unpack( "C", $this->bin, $this->pointer )[ 1 ];
+                            $this->pointer += 1;
+                            break;
+                        case BFSI_USHORT:
+                            $length = unpack( $this->useLittleEndian ? "v" : "n", $this->bin, $this->pointer )[ 1 ];
+                            $this->pointer += 2;
+                            break;
+                        case BFSI_UINT:
+                            $length = unpack( $this->useLittleEndian ? "V" : "N", $this->bin, $this->pointer )[ 1 ];
+                            $this->pointer += 4;
+                            break;
+                        case BFSI_ULONG:
+                        default:
+                            $length = unpack( $this->useLittleEndian ? "P" : "J", $this->bin, $this->pointer )[ 1 ];
+                            $this->pointer += 8;
+                            break;
+                    }
 
                     $value = unpack( "a{$length}", $this->bin, $this->pointer )[ 1 ];
                     $arr[ $name ] = $value;
@@ -304,12 +345,31 @@ class BinaryFormatter {
                 case BF_ULONG:
                     $bin .= pack( $this->useLittleEndian ? "P" : "J", $value );
                     break;
+                case BF_FLOAT:
+                    $bin .= pack( $this->useLittleEndian ? "e" : "E", $value );
+                    break;
                 case BF_FIXED_LEN_CHARS:
                     $bin .= pack( "a{$size}", $value );
                     break;
                 case BF_STRING:
                     $length = strlen( $value );
-                    $bin .= pack( $this->useLittleEndian ? "P" : "J", $length );
+
+                    switch( $f[ "sizeIdentifier" ] ?? BFSI_ULONG ) {
+                        case BFSI_BYTE:
+                            $bin .= pack( "C", $length );
+                            break;
+                        case BFSI_USHORT:
+                            $bin .= pack( $this->useLittleEndian ? "v" : "n", $length );
+                            break;
+                        case BFSI_UINT:
+                            $bin .= pack( $this->useLittleEndian ? "V" : "N", $length );
+                            break;
+                        case BFSI_ULONG:
+                        default:
+                            $bin .= pack( $this->useLittleEndian ? "P" : "J", $length );
+                            break;
+                    }
+                    
                     $bin .= pack( "a{$length}", $value );
                     break;
                 case BF_BINARY:
